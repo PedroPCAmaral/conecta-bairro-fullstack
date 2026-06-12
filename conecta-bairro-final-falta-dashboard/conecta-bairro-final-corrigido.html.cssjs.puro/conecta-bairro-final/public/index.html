@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conecta-Bairro - Economia Local de Águas Claras</title>
+    <link class="styles" rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="header">
+        <nav class="navbar">
+            <div class="container">
+                <div class="navbar-brand" onclick="navigateTo('home')" style="cursor: pointer;">
+                    <div class="logo">CB</div>
+                    <div class="brand-info">
+                        <h1>Conecta-Bairro</h1>
+                        <p class="tagline">Economia Local</p>
+                    </div>
+                </div>
+                <ul class="nav-menu">
+                    <li><a href="#" onclick="navigateTo('home'); return false;">Início</a></li>
+                    <li><a href="#" onclick="navigateTo('services'); return false;">Serviços</a></li>
+                    <li><a href="#" onclick="navigateTo('about'); return false;">Sobre</a></li>
+                    <li><a href="#" onclick="navigateTo('dashboard'); return false;" class="btn-nav">Cadastrar</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main id="app">
+        <section id="home-page" class="page active">
+            <div class="hero">
+                <div class="container">
+                    <div class="hero-content">
+                        <div class="hero-text">
+                            <p class="hero-label">BEM-VINDO AO FUTURO</p>
+                            <h2>Conecte-se com os talentos do seu bairro</h2>
+                            <p class="hero-description">Uma plataforma que fortalece a economia local, conectando moradores a prestadores de serviço de confiança da comunidade. Simples, transparente e humano.</p>
+                            <div class="hero-buttons">
+                                <button class="btn btn-primary" onclick="navigateTo('dashboard')">Cadastre-se como Prestador</button>
+                                <button class="btn btn-secondary" onclick="navigateTo('services')">Explorar Serviços</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <section class="features">
+                <div class="container">
+                    <h3>Por que Conecta-Bairro?</h3>
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon">🏘️</div>
+                            <h4>Local</h4>
+                            <p>Serviços de confiança do seu bairro, sem intermediários caros.</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">👥</div>
+                            <h4>Comunidade</h4>
+                            <p>Fortaleça a economia local e construa vínculos com seus vizinhos.</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">✨</div>
+                            <h4>Simples</h4>
+                            <p>Interface intuitiva e fácil de usar para todos.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </section>
+
+        <section id="services-page" class="page">
+            <div class="container">
+                <h2>Serviços Disponíveis em Águas Claras</h2>
+                <div class="search-section">
+                    <input type="text" id="search-input" placeholder="Buscar por nome ou tipo de serviço..." class="search-box">
+                    <select id="category-filter" class="category-select">
+                        <option value="">Todas as categorias</option>
+                    </select>
+                </div>
+                <div id="services-list" class="services-grid"></div>
+            </div>
+        </section>
+
+        <section id="detail-page" class="page">
+            <div class="container">
+                <button class="btn-back" onclick="navigateTo('services')">← Voltar</button>
+                <div id="service-detail" class="detail-card"></div>
+            </div>
+        </section>
+
+        <section id="dashboard-page" class="page">
+            <div class="container">
+                <h2>Dashboard do Prestador</h2>
+                <div id="dashboard-content"></div>
+            </div>
+        </section>
+
+        <section id="about-page" class="page">
+            <div class="container">
+                <h2>Sobre o Conecta-Bairro</h2>
+                <div class="about-content">
+                    <p>O Conecta-Bairro é uma plataforma web desenvolvida como projeto de extensão universitária na disciplina Programação para Web, com o objetivo de fortalecer a economia local de Águas Claras, Brasília.</p>
+                    <h3>Dados de Águas Claras</h3>
+                    <ul>
+                        <li>População: 141.872 habitantes</li>
+                        <li>Densidade: 14.074 pessoas/km² (maior do DF)</li>
+                        <li>Renda média: 18 salários mínimos</li>
+                        <li>Crescimento: ~8% ao ano</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 Conecta-Bairro. Todos os direitos reservados.</p>
+            <p>Projeto de Extensão Universitária - Programação para Web</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
