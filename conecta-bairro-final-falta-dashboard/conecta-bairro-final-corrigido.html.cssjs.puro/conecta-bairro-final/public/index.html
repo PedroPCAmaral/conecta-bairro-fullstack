@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Conecta-Bairro - Economia Local de Águas Claras</title>
     <link class="styles" rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
     <header class="header">
@@ -21,7 +22,11 @@
                     <li><a href="#" onclick="navigateTo('home'); return false;">Início</a></li>
                     <li><a href="#" onclick="navigateTo('services'); return false;">Serviços</a></li>
                     <li><a href="#" onclick="navigateTo('about'); return false;">Sobre</a></li>
-                    <li><a href="#" onclick="navigateTo('dashboard'); return false;" class="btn-nav">Cadastrar</a></li>
+                    <li class="nav-guest"><a href="login.html">Entrar</a></li>
+                    <li class="nav-guest"><a href="register.html" class="btn-nav">Cadastrar</a></li>
+                    <li class="nav-user" style="display:none;"><span id="nav-username" style="color:var(--primary); font-weight:600;"></span></li>
+                    <li class="nav-user" style="display:none;"><a href="dashboard.html">Minha Conta</a></li>
+                    <li class="nav-user" style="display:none;"><a href="#" onclick="logout(); return false;" class="btn-nav">Sair</a></li>
                 </ul>
             </div>
         </nav>
@@ -37,7 +42,7 @@
                             <h2>Conecte-se com os talentos do seu bairro</h2>
                             <p class="hero-description">Uma plataforma que fortalece a economia local, conectando moradores a prestadores de serviço de confiança da comunidade. Simples, transparente e humano.</p>
                             <div class="hero-buttons">
-                                <button class="btn btn-primary" onclick="navigateTo('dashboard')">Cadastre-se como Prestador</button>
+                                <a class="btn btn-primary" href="register.html">Cadastre-se como Prestador</a>
                                 <button class="btn btn-secondary" onclick="navigateTo('services')">Explorar Serviços</button>
                             </div>
                         </div>
@@ -89,25 +94,37 @@
             </div>
         </section>
 
-        <section id="dashboard-page" class="page">
-            <div class="container">
-                <h2>Dashboard do Prestador</h2>
-                <div id="dashboard-content"></div>
-            </div>
-        </section>
-
         <section id="about-page" class="page">
             <div class="container">
-                <h2>Sobre o Conecta-Bairro</h2>
                 <div class="about-content">
-                    <p>O Conecta-Bairro é uma plataforma web desenvolvida como projeto de extensão universitária na disciplina Programação para Web, com o objetivo de fortalecer a economia local de Águas Claras, Brasília.</p>
-                    <h3>Dados de Águas Claras</h3>
-                    <ul>
-                        <li>População: 141.872 habitantes</li>
-                        <li>Densidade: 14.074 pessoas/km² (maior do DF)</li>
-                        <li>Renda média: 18 salários mínimos</li>
-                        <li>Crescimento: ~8% ao ano</li>
-                    </ul>
+                    <p class="about-label">QUEM SOMOS</p>
+                    <h2>Sobre o Conecta-Bairro</h2>
+                    <p class="about-lead">Uma plataforma web criada como projeto de extensão universitária na disciplina de Programação para Web, com um propósito simples: <strong>fortalecer a economia local de Águas Claras</strong> conectando moradores a prestadores de serviço de confiança do próprio bairro.</p>
+
+                    <div class="about-mission">
+                        <span class="about-mission-icon">🤝</span>
+                        <p>Sem intermediários caros e sem complicação — só vizinhos ajudando vizinhos, de forma simples, transparente e humana.</p>
+                    </div>
+
+                    <h3>Águas Claras em números</h3>
+                    <div class="about-stats">
+                        <div class="stat-card">
+                            <div class="stat-number">141.872</div>
+                            <div class="stat-label">habitantes</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">14.074</div>
+                            <div class="stat-label">pessoas/km² — a maior densidade do DF</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">18</div>
+                            <div class="stat-label">salários mínimos de renda média</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">~8%</div>
+                            <div class="stat-label">de crescimento ao ano</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -120,6 +137,7 @@
         </div>
     </footer>
 
+    <script src="auth.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
