@@ -38,6 +38,37 @@ router.get('/:id', (req, res) => {
     });
 });
 
+// GET - Redes sociais de um prestador (público, para a página de detalhe)
+router.get('/:id/social', (req, res) => {
+    const sql = 'SELECT platform, url FROM social_links WHERE provider_id = ?';
+    db.query(sql, [req.params.id], (err, results) => {
+        if(err) return res.status(500).json({error: err.message});
+        res.json(results);
+    });
+});
+
+// GET - Avaliações + média de um prestador (público, para a página de detalhe)
+router.get('/:id/reviews', (req, res) => {
+    const listSql = `SELECT r.id, r.rating, r.comment, r.created_at, u.name AS clientName
+                     FROM reviews r
+                     JOIN users u ON r.client_id = u.id
+                     WHERE r.provider_id = ?
+                     ORDER BY r.created_at DESC`;
+    const statSql = 'SELECT AVG(rating) AS average, COUNT(*) AS total FROM reviews WHERE provider_id = ?';
+
+    db.query(listSql, [req.params.id], (err, reviews) => {
+        if(err) return res.status(500).json({error: err.message});
+        db.query(statSql, [req.params.id], (err2, stats) => {
+            if(err2) return res.status(500).json({error: err2.message});
+            res.json({
+                average: stats[0].average ? Number(stats[0].average) : 0,
+                total: stats[0].total,
+                reviews
+            });
+        });
+    });
+});
+
 // GET - Filtrar por categoria
 router.get('/category/:categoryId', (req, res) => {
     const sql = 'SELECT p.*, c.name as categoryName FROM providers p JOIN categories c ON p.categoryId = c.id WHERE p.categoryId = ? AND p.isActive = 1';

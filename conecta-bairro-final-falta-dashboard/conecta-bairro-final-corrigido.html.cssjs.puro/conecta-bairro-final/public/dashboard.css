@@ -1,0 +1,166 @@
+/* ============================================
+   dashboard.css — abas e cartões da área "Minha Conta"
+   Herda as variáveis de cor do style.css para manter o mesmo visual.
+   ============================================ */
+
+.dashboard-header {
+    margin: 1.5rem 0 0.5rem;
+}
+
+.dashboard-header h2 {
+    color: var(--primary);
+}
+
+.dashboard-role {
+    color: var(--secondary);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+/* Barra de abas */
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    border-bottom: 2px solid var(--border);
+    margin: 20px 0 28px;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 12px 20px;
+    font-size: 16px;
+    font-family: inherit;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.tab-btn:hover {
+    color: var(--secondary);
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--secondary);
+}
+
+/* Painéis */
+.tab-panel {
+    display: none;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+/* Cartão genérico (histórico, avaliação, etc.) */
+.card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+}
+
+.card h4 {
+    color: var(--primary);
+    margin-bottom: 4px;
+}
+
+.card-meta {
+    color: #777;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.stars {
+    color: var(--secondary);
+    letter-spacing: 2px;
+    font-size: 18px;
+}
+
+/* Resumo da média (prestador) */
+.rating-summary {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+}
+
+.rating-summary .average {
+    font-size: 40px;
+    font-weight: bold;
+    color: var(--primary);
+    line-height: 1;
+}
+
+/* Caixa de formulário das abas */
+.panel-form {
+    max-width: 560px;
+}
+
+.panel-form h3 {
+    color: var(--primary);
+    margin: 8px 0 16px;
+}
+
+.divider-line {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 32px 0;
+}
+
+/* Mensagens inline de sucesso/erro (sem alert) */
+.feedback {
+    margin: 12px 0;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    display: none;
+}
+
+.feedback.success {
+    display: block;
+    background: #E8F5E9;
+    color: #2E7D32;
+}
+
+.feedback.error {
+    display: block;
+    background: #FFEBEE;
+    color: #C62828;
+}
+
+.empty-state {
+    color: #777;
+    padding: 24px 0;
+}
+
+.muted {
+    color: #777;
+    font-size: 14px;
+}
+
+/* Ações pequenas dentro dos cartões */
+.card-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.btn-sm {
+    padding: 6px 14px;
+    font-size: 14px;
+}
