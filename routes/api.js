@@ -21,7 +21,15 @@ router.get('/categories', (req, res) => {
 
 // GET - Listar todos os prestadores
 router.get('/', (req, res) => {
-    const sql = 'SELECT p.*, c.name as categoryName FROM providers p JOIN categories c ON p.categoryId = c.id WHERE p.isActive = 1';
+    // CORREÇÃO: Usa COALESCE para testar se a coluna no banco se chama 'title' ou 'name' e preencher o front-end corretamente
+    const sql = `
+        SELECT p.*, 
+               COALESCE(c.title, c.name) AS categoryName, 
+               COALESCE(c.title, c.name) AS category_name 
+        FROM providers p 
+        LEFT JOIN categories c ON p.categoryId = c.id 
+        WHERE p.isActive = 1
+    `;
     db.query(sql, (err, results) => {
         if(err) return res.status(500).json({error: err.message});
         res.json(results);
@@ -30,7 +38,14 @@ router.get('/', (req, res) => {
 
 // GET - Buscar prestador por ID
 router.get('/:id', (req, res) => {
-    const sql = 'SELECT p.*, c.name as categoryName FROM providers p JOIN categories c ON p.categoryId = c.id WHERE p.id = ?';
+    const sql = `
+        SELECT p.*, 
+               COALESCE(c.title, c.name) AS categoryName, 
+               COALESCE(c.title, c.name) AS category_name 
+        FROM providers p 
+        LEFT JOIN categories c ON p.categoryId = c.id 
+        WHERE p.id = ?
+    `;
     db.query(sql, [req.params.id], (err, results) => {
         if(err) return res.status(500).json({error: err.message});
         if(results.length === 0) return res.status(404).json({error: 'Prestador não encontrado'});
@@ -87,7 +102,14 @@ router.get('/:id/reviews', async (req, res) => {
 
 // GET - Filtrar por categoria
 router.get('/category/:categoryId', (req, res) => {
-    const sql = 'SELECT p.*, c.name as categoryName FROM providers p JOIN categories c ON p.categoryId = c.id WHERE p.categoryId = ? AND p.isActive = 1';
+    const sql = `
+        SELECT p.*, 
+               COALESCE(c.title, c.name) AS categoryName, 
+               COALESCE(c.title, c.name) AS category_name 
+        FROM providers p 
+        LEFT JOIN categories c ON p.categoryId = c.id 
+        WHERE p.categoryId = ? AND p.isActive = 1
+    `;
     db.query(sql, [req.params.categoryId], (err, results) => {
         if(err) return res.status(500).json({error: err.message});
         res.json(results);
@@ -97,7 +119,14 @@ router.get('/category/:categoryId', (req, res) => {
 // GET - Buscar por nome
 router.get('/search/:query', (req, res) => {
     const query = `%${req.params.query}%`;
-    const sql = 'SELECT p.*, c.name as categoryName FROM providers p JOIN categories c ON p.categoryId = c.id WHERE (p.name LIKE ? OR p.description LIKE ?) AND p.isActive = 1';
+    const sql = `
+        SELECT p.*, 
+               COALESCE(c.title, c.name) AS categoryName, 
+               COALESCE(c.title, c.name) AS category_name 
+        FROM providers p 
+        LEFT JOIN categories c ON p.categoryId = c.id 
+        WHERE (p.name LIKE ? OR p.description LIKE ?) AND p.isActive = 1
+    `;
     db.query(sql, [query, query], (err, results) => {
         if(err) return res.status(500).json({error: err.message});
         res.json(results);

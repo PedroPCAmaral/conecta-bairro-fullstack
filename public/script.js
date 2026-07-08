@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 const API_URL = '/api';
 let allProviders = [];
+let allCategories = []; // Guardará as categorias carregadas do banco
 let detailIsClient = false; // se o visitante atual está logado como cliente (no detalhe)
 
 // Ícones/rótulos das redes (emoji, sem lib externa — combina com o resto do site)
@@ -35,7 +36,6 @@ function fmtDate(s) {
     return isNaN(d) ? '' : d.toLocaleDateString('pt-BR');
 }
 
-// Copia texto para a área de transferência (com fallback p/ navegadores antigos)
 function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
@@ -64,21 +64,26 @@ function navigateTo(page) {
     }
 }
 
-// 2. Carrega as categorias do banco no select de filtro da página de serviços
+// 2. Carrega as categorias do banco e salva na memória global
 async function loadCategories() {
     try {
         const select = document.getElementById('category-filter');
-        // Limpa opções antigas deixando apenas a primeira
         select.innerHTML = '<option value="">Todas as categorias</option>';
 
         const response = await fetch(`${API_URL}/categories`);
-        const categories = await response.json();
-        categories.forEach(cat => {
+        allCategories = await response.json(); // Salva globalmente
+        
+        allCategories.forEach(cat => {
             const opt = document.createElement('option');
             opt.value = cat.id;
             opt.textContent = cat.name;
             select.appendChild(opt);
         });
+        
+        // Recarrega os serviços caso eles tenham carregado antes das categorias
+        if (allProviders.length > 0) {
+            displayServices(allProviders);
+        }
     } catch (e) {
         console.error("Erro ao carregar categorias:", e);
     }
@@ -92,20 +97,31 @@ async function loadServices() {
     } catch (e) { console.error(e); }
 }
 
+// SOLUÇÃO DEFINITIVA: Traduz dinamicamente o ID da categoria no nome real
 function displayServices(providers) {
     const list = document.getElementById('services-list');
     list.innerHTML = '';
+    
     providers.forEach(p => {
+        // Encontra o ID correto enviado pelo banco de dados
+        const idDaCategoria = p.categoryId || p.category_id;
+        
+        // Procura na lista global o nome correspondente a este ID
+        const categoriaEncontrada = allCategories.find(c => c.id == idDaCategoria);
+        
+        // Define o nome dinâmico ou usa fallbacks do banco, por último 'Outros'
+        const currentCategory = categoriaEncontrada ? categoriaEncontrada.name : (p.categoryName || p.category_name || p.category || 'Outros');
+
         const card = document.createElement('div');
         card.className = 'service-card';
         card.onclick = () => showServiceDetail(p.id);
         card.innerHTML = `
-            <span class="service-category">${p.categoryName || 'Outros'}</span>
-            <h3>${p.name}</h3>
-            <p class="service-description">${p.description || 'Sem descrição'}</p>
+            <span class="service-category">${escapeHtml(currentCategory)}</span>
+            <h3>${escapeHtml(p.name)}</h3>
+            <p class="service-description">${escapeHtml(p.description || 'Sem descrição')}</p>
             <div class="service-contact">
-                ${p.phone ? `<span>📱 ${p.phone}</span>` : ''}
-                ${p.email ? `<span>📧 ${p.email}</span>` : ''}
+                ${p.phone ? `<span>📱 ${escapeHtml(p.phone)}</span>` : ''}
+                ${p.email ? `<span>📧 ${escapeHtml(p.email)}</span>` : ''}
             </div>
         `;
         list.appendChild(card);
@@ -122,7 +138,6 @@ async function showServiceDetail(id) {
         ]);
 
         if (!pRes.ok) {
-            console.error('Erro ao carregar prestador:', pRes.status, await pRes.text());
             throw new Error('Não foi possível carregar o prestador.');
         }
 
@@ -130,44 +145,33 @@ async function showServiceDetail(id) {
         const social = socialRes.ok ? await socialRes.json() : [];
         let reviewsData = revRes.ok ? await revRes.json() : { average: 0, total: 0, reviews: [] };
 
-        // Normaliza formatos diferentes que o servidor pode retornar
         function normalizeReview(r) {
             return {
                 id: r.id || r.ID || null,
                 rating: Number(r.rating ?? r.Rating ?? r.rate ?? 0),
                 comment: r.comment ?? r.Comment ?? '',
                 clientName: r.clientName ?? r.client_name ?? r.name ?? 'Cliente Conecta',
-                created_at: r.created_at ?? r.createdAt ?? r.created_at ?? null
+                created_at: r.created_at ?? r.createdAt ?? null
             };
         }
 
         if (!reviewsData) reviewsData = { average: 0, total: 0, reviews: [] };
-        // Se o servidor devolveu só um array (versões antigas), converte para o formato esperado
         if (Array.isArray(reviewsData)) {
             const arr = reviewsData.map(normalizeReview);
             reviewsData = { average: 0, total: arr.length, reviews: arr };
         } else if (reviewsData.reviews && Array.isArray(reviewsData.reviews)) {
             reviewsData.reviews = reviewsData.reviews.map(normalizeReview);
-            // garante que average e total existam
             reviewsData.average = Number(reviewsData.average ?? 0);
             reviewsData.total = typeof reviewsData.total === 'number' ? reviewsData.total : reviewsData.reviews.length;
         } else {
-            // resposta inesperada — normaliza para vazio
             reviewsData = { average: 0, total: 0, reviews: [] };
         }
+        
         let me = null;
         if (meRes.ok) {
             const contentType = meRes.headers.get('content-type') || '';
             if (contentType.includes('application/json')) {
-                try {
-                    me = await meRes.json();
-                } catch (e) {
-                    console.warn('Falha ao parsear /auth/me como JSON:', e);
-                    me = null;
-                }
-            } else {
-                await meRes.text();
-                me = null;
+                try { me = await meRes.json(); } catch (e) { me = null; }
             }
         }
         detailIsClient = !!(me && me.role === 'client');
@@ -179,7 +183,6 @@ async function showServiceDetail(id) {
     } catch (e) { console.error(e); alert('Erro ao carregar'); }
 }
 
-// Monta o HTML da página de detalhe (info + contatos copiáveis + avaliações)
 function renderDetail(p, social, reviewsData) {
     const chips = [];
     if (p.phone) chips.push(chipHtml('📱', 'Telefone', p.phone));
@@ -189,13 +192,17 @@ function renderDetail(p, social, reviewsData) {
         chips.push(chipHtml(meta.icon, meta.label, s.url, s.platform));
     });
 
+    const idDaCategoria = p.categoryId || p.category_id;
+    const categoriaEncontrada = allCategories.find(c => c.id == idDaCategoria);
+    const detailCategory = categoriaEncontrada ? categoriaEncontrada.name : (p.categoryName || p.category_name || p.category || 'Outros');
+
     return `
         <h2>${escapeHtml(p.name)}</h2>
-        <span class="service-category">${escapeHtml(p.categoryName || 'Outros')}</span>
+        <span class="service-category">${escapeHtml(detailCategory)}</span>
         <p class="service-description">${escapeHtml(p.description || 'Sem descrição')}</p>
 
         <div class="detail-info">
-            <div class="detail-item"><label>Categoria</label><p>${escapeHtml(p.categoryName || 'Não informada')}</p></div>
+            <div class="detail-item"><label>Categoria</label><p>${escapeHtml(detailCategory)}</p></div>
             ${p.address ? `<div class="detail-item"><label>Endereço</label><p>${escapeHtml(p.address)}</p></div>` : ''}
             ${p.neighborhood ? `<div class="detail-item"><label>Bairro</label><p>${escapeHtml(p.neighborhood)}</p></div>` : ''}
         </div>
@@ -209,7 +216,6 @@ function renderDetail(p, social, reviewsData) {
     `;
 }
 
-// Botão de contato (clique-para-copiar)
 function chipHtml(icon, label, value, platform) {
     const cls = platform ? ` chip-${platform}` : '';
     return `<button type="button" class="copy-chip${cls}" data-copy="${escapeHtml(value)}">
@@ -219,7 +225,6 @@ function chipHtml(icon, label, value, platform) {
             </button>`;
 }
 
-// Bloco de avaliações (média + lista + form ou aviso)
 function renderReviews(data) {
     const avg = Number(data.average || 0);
 
@@ -269,7 +274,6 @@ function renderReviews(data) {
     `;
 }
 
-// Liga os cliques de copiar e o envio da avaliação
 function attachDetailHandlers(providerId) {
     document.querySelectorAll('#service-detail .copy-chip').forEach(chip => {
         chip.addEventListener('click', () => {
@@ -282,7 +286,6 @@ function attachDetailHandlers(providerId) {
                 setTimeout(() => { status.textContent = 'copiar'; chip.classList.remove('copied'); }, 1500);
             }
 
-            // Registra o contato no histórico (só cliente logado)
             if (detailIsClient) {
                 fetch('/api/history', {
                     method: 'POST',
@@ -311,7 +314,7 @@ function attachDetailHandlers(providerId) {
                 });
                 const d = await res.json();
                 if (res.ok) {
-                    showServiceDetail(providerId); // recarrega já com a nova avaliação
+                    showServiceDetail(providerId);
                 } else {
                     fb.className = 'feedback error';
                     fb.textContent = d.error || 'Erro ao enviar avaliação';
@@ -339,7 +342,7 @@ function filterServices() {
         );
     }
     if (catId) {
-        filtered = filtered.filter(p => p.categoryId == catId);
+        filtered = filtered.filter(p => p.categoryId == catId || p.category_id == catId);
     }
     displayServices(filtered);
 }
