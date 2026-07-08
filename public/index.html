@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conecta-Bairro - Economia Local de Águas Claras</title>
+    <link class="styles" rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+    <header class="header">
+        <nav class="navbar">
+            <div class="container">
+                <div class="navbar-brand" onclick="navigateTo('home')" style="cursor: pointer;">
+                    <div class="logo">CB</div>
+                    <div class="brand-info">
+                        <h1>Conecta-Bairro- Águas Claras - AC</h1>
+                        <p class="tagline">Economia Local</p>
+                    </div>
+                </div>
+                <ul class="nav-menu">
+                    <li><a href="#" onclick="navigateTo('home'); return false;">Início</a></li>
+                    <li><a href="#" onclick="navigateTo('services'); return false;">Serviços</a></li>
+                    <li><a href="#" onclick="navigateTo('about'); return false;">Sobre</a></li>
+                    <li class="nav-guest"><a href="login.html">Entrar</a></li>
+                    <li class="nav-guest"><a href="register.html" class="btn-nav">Cadastrar</a></li>
+                    <li class="nav-user" style="display:none;"><span id="nav-username" style="color:var(--primary); font-weight:600;"></span></li>
+                    <li class="nav-user" style="display:none;"><a href="dashboard.html">Minha Conta</a></li>
+                    <li class="nav-user" style="display:none;"><a href="#" onclick="logout(); return false;" class="btn-nav">Sair</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main id="app">
+        <section id="home-page" class="page active">
+            <div class="hero">
+                <div class="container">
+                    <div class="hero-content">
+                        <div class="hero-text">
+                            <p class="hero-label">BEM-VINDO AO FUTURO</p>
+                            <h2>Conecte-se com os talentos do seu bairro</h2>
+                            <p class="hero-description">Uma plataforma que fortalece a economia local, conectando moradores a prestadores de serviço de confiança da comunidade. Simples, transparente e humano.</p>
+                            <div class="hero-buttons">
+                                <a class="btn btn-primary" href="register.html">Cadastre-se como Prestador</a>
+                                <button class="btn btn-secondary" onclick="navigateTo('services')">Explorar Serviços</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <section class="features">
+                <div class="container">
+                    <h3>Por que Conecta-Bairro?</h3>
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon">🏘️</div>
+                            <h4>Local</h4>
+                            <p>Serviços de confiança do seu bairro, sem intermediários caros.</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">👥</div>
+                            <h4>Comunidade</h4>
+                            <p>Fortaleça a economia local e construa vínculos com seus vizinhos.</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">✨</div>
+                            <h4>Simples</h4>
+                            <p>Interface intuitiva e fácil de usar para todos.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </section>
+
+        <section id="services-page" class="page">
+            <div class="container">
+                <h2>Serviços Disponíveis em Águas Claras</h2>
+                <div class="search-section">
+                    <input type="text" id="search-input" placeholder="Buscar por nome ou tipo de serviço..." class="search-box">
+                    <select id="category-filter" class="category-select">
+                        <option value="">Todas as categorias</option>
+                    </select>
+                </div>
+                <div id="services-list" class="services-grid"></div>
+            </div>
+        </section>
+
+        <section id="detail-page" class="page">
+            <div class="container">
+                <button class="btn-back" onclick="navigateTo('services')">← Voltar</button>
+                <div id="service-detail" class="detail-card"></div>
+            </div>
+        </section>
+
+        <section id="about-page" class="page">
+            <div class="container">
+                <div class="about-content">
+                    <p class="about-label">QUEM SOMOS</p>
+                    <h2>Sobre o Conecta-Bairro</h2>
+                    <p class="about-lead">Uma plataforma web criada como projeto de extensão universitária na disciplina de Programação para Web, com um propósito simples: <strong>fortalecer a economia local de Águas Claras</strong> conectando moradores a prestadores de serviço de confiança do próprio bairro.</p>
+
+                    <div class="about-mission">
+                        <span class="about-mission-icon">🤝</span>
+                        <p>Sem intermediários caros e sem complicação — só vizinhos ajudando vizinhos, de forma simples, transparente e humana.</p>
+                    </div>
+
+                    <h3>Águas Claras em números</h3>
+                    <div class="about-stats">
+                        <div class="stat-card">
+                            <div class="stat-number">141.872</div>
+                            <div class="stat-label">habitantes</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">14.074</div>
+                            <div class="stat-label">pessoas/km² — a maior densidade do DF</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">18</div>
+                            <div class="stat-label">salários mínimos de renda média</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">~8%</div>
+                            <div class="stat-label">de crescimento ao ano</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+   <footer class="footer">
+    <div class="footer-content">
+        <h4>Conecta-Bairro AC<sup>&reg;</sup></h4>
+        <p>&copy; 2026 Todos os direitos reservados.</p>
+        <p>Desenvolvido por <strong>Pedro Amaral</strong></p>
+         <p>Contato <strong>(61) 98557-9000</strong></p>
+    </div>
+</footer>
+
+    <script src="auth.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

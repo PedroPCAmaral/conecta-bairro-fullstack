@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minha Conta - Conecta-Bairro</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+    <header class="header">
+        <nav class="navbar">
+            <div class="container">
+                <a href="index.html" class="navbar-brand" style="text-decoration: none;">
+                    <div class="logo">CB</div>
+                    <div class="brand-info">
+                        <h1>Conecta-Bairro</h1>
+                        <p class="tagline">Economia Local</p>
+                    </div>
+                </a>
+                <ul class="nav-menu">
+                    <li><a href="index.html">Início</a></li>
+                    <li class="nav-guest"><a href="login.html">Entrar</a></li>
+                    <li class="nav-guest"><a href="register.html" class="btn-nav">Cadastrar</a></li>
+                    <li class="nav-user" style="display:none;"><span id="nav-username" style="color:var(--primary); font-weight:600;"></span></li>
+                    <li class="nav-user" style="display:none;"><a href="dashboard.html">Minha Conta</a></li>
+                    <li class="nav-user" style="display:none;"><a href="#" onclick="logout(); return false;" class="btn-nav">Sair</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main id="app">
+        <section class="page active">
+            <div class="container">
+                <div class="dashboard-header">
+                    <h2>Minha Conta</h2>
+                    <span class="dashboard-role" id="role-label"></span>
+                </div>
+
+                <!-- Barra de abas (preenchida pelo JS conforme a role) -->
+                <div class="tabs" id="tabs"></div>
+
+                <!-- Painéis das abas (preenchidos pelo JS) -->
+                <div id="panels"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 Conecta-Bairro. Todos os direitos reservados.</p>
+            <p>Projeto de Extensão Universitária - Programação para Web</p>
+        </div>
+    </footer>
+
+    <script src="auth.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>
