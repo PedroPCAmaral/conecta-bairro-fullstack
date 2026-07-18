@@ -1,272 +1,189 @@
-const express = require('express');
-const session = require('express-session');
-const cors = require('cors'); 
-const path = require('path');
-const app = express();
-const DEFAULT_PORT = 3000;
-const requestedPort = parseInt(process.env.PORT, 10) || DEFAULT_PORT;
-// Garante que o limite de portas acompanhe dinamicamente a porta exigida pelo Render
-const MAX_PORT = requestedPort + 10;
-
-// Importar conexão do banco de dados (que está exportando o pool multi-formato)
-const db = require('./db');
-
-// =========================================================================
-// 🛡️ CORREÇÃO CRÍTICA: Proteção contra o erro de Transação (beginTransaction)
-// =========================================================================
-if (db && !db.beginTransaction) {
-    db.beginTransaction = function(callback) {
-        if (typeof callback === 'function') {
-            return db.query('START TRANSACTION', callback);
-        }
-        return new Promise((resolve, reject) => {
-            db.query('START TRANSACTION').then(() => resolve()).catch(reject);
-        });
-    };
-    
-    db.commit = function(callback) {
-        if (typeof callback === 'function') return db.query('COMMIT', callback);
-        return new Promise((resolve, reject) => {
-            db.query('COMMIT').then(() => resolve()).catch(reject);
-        });
-    };
-
-    db.rollback = function(callback) {
-        if (typeof callback === 'function') return db.query('ROLLBACK', callback);
-        return new Promise((resolve, reject) => {
-            db.query('ROLLBACK').then(() => resolve()).catch(reject);
-        });
-    };
-}
-// =========================================================================
-
-// Middlewares Globais
-app.use(express.json());
-app.use(express.urlencoded({ extended: true })); 
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Configuração da Sessão (ANTES DO CORS)
-app.set('trust proxy', 1);
-app.use(session({
-    secret: 'conecta-bairro-secret', 
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        httpOnly: true,
-        secure: false, 
-        sameSite: 'lax',
-        maxAge: 1000 * 60 * 60 * 24 
-    }
-}));
-
-// CORS com suporte a credenciais (DEPOIS da sessão)
-app.use(cors({
-    origin: true,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Accept', 'Authorization', 'Cookie']
-}));
-
-// --- CENTRALIZAÇÃO ABSOLUTA DAS ROTAS DA API ---
-
-// 1. ROTA DE REVIEWS (Aceita qualquer formato vindo do front)
-app.get([
-    '/api/providers/:id/reviews', 
-    '/api/providers::id/reviews',
-    '*/providers:id/reviews',
-    '*/providers/:id/reviews'
-], async (req, res) => {
-    let providerId = req.params.id || req.params['0'];
-    if (providerId && typeof providerId === 'string') {
-        providerId = providerId.replace(/[^0-9]/g, ''); // Deixa APENAS números
-    }
-
-    const queryStr = `
-        SELECT 
-            r.id, r.rating, r.comment, r.createdAt AS created_at,
-            IFNULL(u.name, 'Cliente Conecta') AS clientName
-        FROM reviews r
-        LEFT JOIN users u ON (r.user_id = u.id OR r.client_id = u.id)
-        WHERE r.provider_id = ?
-        ORDER BY r.createdAt DESC
-    `;
-
-    // Emergency mock (apenas quando FORCE_MOCK_REVIEWS=1):
-    if (process.env.FORCE_MOCK_REVIEWS === '1') {
-        const now = new Date().toISOString();
-        return res.json({
-            average: 5,
-            total: 1,
-            reviews: [{ id: 1, rating: 5, comment: 'Avaliação de teste (mock)', clientName: 'Cliente Teste', created_at: now }]
-        });
-    }
-
+// --- AUTO-MIGRAÇÃO E POPULAÇÃO MASSIVA DO BANCO ---
+async function setupDatabase() {
     try {
-        const [reviews] = await db.query(queryStr, [providerId]);
+        console.log('Validando tabelas no MySQL da Aiven...');
+        
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS categories (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                name VARCHAR(100) NOT NULL,
+                description TEXT,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-        const statSql = 'SELECT AVG(rating) AS average, COUNT(*) AS total FROM reviews WHERE provider_id = ?';
-        const [stats] = await db.query(statSql, [providerId]);
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                password VARCHAR(255) NOT NULL,
+                role VARCHAR(50) DEFAULT 'client',
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-        res.json({
-            average: stats && stats[0] && stats[0].average ? Number(stats[0].average) : 0,
-            total: stats && stats[0] ? stats[0].total : 0,
-            reviews
-        });
-    } catch (err) {
-        console.error('Erro ao buscar reviews:', err.message);
-        res.status(500).json({ average: 0, total: 0, reviews: [] });
-    }
-});
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS providers (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                password VARCHAR(255) NOT NULL,
+                category VARCHAR(100) NOT NULL,
+                description TEXT,
+                phone VARCHAR(20),
+                address VARCHAR(255),
+                neighborhood VARCHAR(100),
+                isActive BOOLEAN DEFAULT 1,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-// 2. ROTA DE UM PRESTADOR ESPECÍFICO (Totalmente aberta e limpando strings do front)
-app.get([
-    '/api/providers/:id', 
-    '/api/providers::id',
-    '*/providers:id',
-    '*/providers/:id',
-    '/providers/:id'
-], async (req, res) => {
-    let providerId = req.params.id || req.params['0'];
-    
-    if (providerId && typeof providerId === 'string') {
-        providerId = providerId.replace(/[^0-9]/g, ''); 
-    }
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS reviews (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                provider_id INT NOT NULL,
+                user_id INT,
+                client_id INT,
+                rating INT NOT NULL,
+                comment TEXT,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-    if (!providerId) {
-        return res.status(400).json({ error: 'ID inválido' });
-    }
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS social_links (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                provider_id INT NOT NULL,
+                platform VARCHAR(50) NOT NULL,
+                url VARCHAR(255) NOT NULL
+            )
+        `);
 
-    try {
-        const [results] = await db.query('SELECT * FROM providers WHERE id = ?', [providerId]);
-        if (!results || results.length === 0) {
-            return res.status(404).json({ error: 'Prestador não encontrado' });
-        }
-        res.json(results[0]);
-    } catch (err) {
-        console.error('Erro ao buscar prestador específico:', err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// 3. LISTA GERAL DE FORNECEDORES E FILTROS
-app.get(['/api/providers', 'api/providers'], async (req, res) => {
-    try {
-        const { category, search } = req.query;
-        let queryStr = 'SELECT * FROM providers WHERE 1=1';
-        let queryParams = [];
-
-        if (category && category !== 'Todos' && category !== 'Todas as categorias' && category !== '') {
-            queryStr += ' AND category = ?';
-            queryParams.push(category);
+        // 1. Inserir as 10 Categorias
+        const [categoriesCount] = await db.query('SELECT COUNT(*) as total FROM categories');
+        if (categoriesCount[0].total === 0) {
+            await db.query(`
+                INSERT INTO categories (name, description) VALUES
+                ('Elétrica', 'Serviços elétricos'),
+                ('Costura', 'Serviços de costura'),
+                ('Alimentação', 'Serviços alimentícios'),
+                ('Limpeza', 'Serviços de limpeza'),
+                ('Tecnologia', 'Serviços tecnológicos'),
+                ('Hidráulica', 'Serviços hidráulicos'),
+                ('Pintura', 'Serviços de pintura'),
+                ('Carpintaria', 'Serviços de carpintaria'),
+                ('Jardinagem', 'Serviços de jardinagem'),
+                ('Mecânica', 'Serviços mecânicos')
+            `);
+            console.log('✓ 10 Categorias cadastradas.');
         }
 
-        if (search && search.trim() !== '') {
-            queryStr += ' AND (name LIKE ? OR description LIKE ?)';
-            const searchVal = `%${search}%`;
-            queryParams.push(searchVal, searchVal);
-        }
+        const pass = 'senha_criptografada_exemplo';
+        const bairros = ['Centro', 'Bairro Novo', 'Vila Maria', 'Jardins', 'Bairro Alto', 'Vila Nova', 'Planalto', 'Alvorada'];
+        const cats = ['Elétrica', 'Costura', 'Alimentação', 'Limpeza', 'Tecnologia', 'Hidráulica', 'Pintura', 'Carpintaria', 'Jardinagem', 'Mecânica'];
 
-        queryStr += ' ORDER BY name ASC';
-
-        const [results] = await db.query(queryStr, queryParams);
-        res.json(results);
-    } catch (err) {
-        console.error('Erro ao listar fornecedores:', err.message);
-        res.status(500).json([]);
-    }
-});
-
-// 4. LISTA DE CATEGORIAS
-app.get(['/api/categories', 'api/categories'], async (req, res) => {
-    try {
-        const [results] = await db.query('SELECT * FROM categories ORDER BY name');
-        res.json(results);
-    } catch (err) {
-        console.error('Erro ao buscar categorias:', err.message);
-        res.status(500).json([]);
-    }
-});
-
-// 5. REDES SOCIAIS DO PRESTADOR
-app.get([
-    '/api/providers/:id/social',
-    'api/providers/:id/social',
-    '*/providers/:id/social',
-    '*/providers/:id/social'
-], async (req, res) => {
-    let providerId = req.params.id || req.params['0'];
-    if (providerId && typeof providerId === 'string') {
-        providerId = providerId.replace(/[^0-9]/g, '');
-    }
-    if (!providerId) {
-        return res.status(400).json({ error: 'ID inválido' });
-    }
-
-    try {
-        const [results] = await db.query(
-            'SELECT platform, url FROM social_links WHERE provider_id = ?',
-            [providerId]
-        );
-        res.json(results);
-    } catch (err) {
-        console.error('Erro ao buscar redes sociais:', err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// --- ROTEADORES SECUNDÁRIOS ---
-app.use('/auth', require('./routes/auth'));
-app.use('/api/client', require('./routes/client'));
-app.use('/api/provider', require('./routes/provider'));
-app.use('/api/history', require('./routes/history'));
-
-// Rota de depuração para inserir reviews rapidamente (SÓ em desenvolvimento)
-if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEBUG_ROUTES === '1') {
-    app.post('/api/debug/reviews', express.json(), async (req, res) => {
-        const { provider_id, client_id, rating, comment } = req.body;
-        if (!provider_id || !client_id || !rating) return res.status(400).json({ error: 'provider_id, client_id e rating obrigatórios' });
-        if (rating < 1 || rating > 5) return res.status(400).json({ error: 'rating deve ser entre 1 e 5' });
-        try {
-            const [result] = await db.query('INSERT INTO reviews (provider_id, client_id, rating, comment) VALUES (?, ?, ?, ?)', [provider_id, client_id, rating, comment || null]);
-            console.log(`DEBUG: review inserida id=${result.insertId} provider=${provider_id} client=${client_id} rating=${rating}`);
-            res.status(201).json({ id: result.insertId, message: 'Review inserida (debug)' });
-        } catch (e) {
-            console.error('Erro debug insert review:', e.message || e);
-            res.status(500).json({ error: e.message });
-        }
-    });
-}
-
-// --- ROTA FRONTEND SPA (Sempre por último!) ---
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Iniciar servidor com fallback de porta
-function tryListen(portToTry) {
-    return new Promise((resolve, reject) => {
-        const server = app.listen(portToTry, () => resolve({ server, port: portToTry }));
-        server.on('error', reject);
-    });
-}
-
-(async () => {
-    for (let p = requestedPort; p <= MAX_PORT; p++) {
-        try {
-            const { port: activePort } = await tryListen(p);
-            console.log(`\n✓ Conecta-Bairro rodando em http://localhost:${activePort}`);
-            console.log('✓ Servidor inicializado com sucesso');
-            console.log('✓ Pressione Ctrl+C para parar o processo\n');
-            return;
-        } catch (err) {
-            if (err.code === 'EADDRINUSE') {
-                console.warn(`Porta ${p} ocupada, tentando próxima...`);
-                continue;
+        // 2. Inserir 100 Clientes se a tabela estiver vazia
+        const [usersCount] = await db.query('SELECT COUNT(*) as total FROM users');
+        if (usersCount[0].total === 0) {
+            const nomesClientes = [
+                'Lucas', 'Gabriel', 'Matheus', 'Guilherme', 'Gustavo', 'Felipe', 'Rafael', 'Daniel', 'Marcelo', 'Rodrigo',
+                'Ricardo', 'Fernando', 'Thiago', 'Alexandre', 'Leonardo', 'Bruno', 'Eduardo', 'Diego', 'Danilo', 'Vitor',
+                'Marcos', 'André', 'Fabio', 'Roberto', 'Julio', 'Renato', 'Samuel', 'Igor', 'Murilo', 'Otavio',
+                'Ana', 'Maria', 'Julia', 'Beatriz', 'Larissa', 'Amanda', 'Leticia', 'Camila', 'Bruna', 'Jessica',
+                'Barbara', 'Carla', 'Fernanda', 'Gabriela', 'Isabela', 'Mariana', 'Aline', 'Patricia', 'Vanessa', 'Juliana',
+                'Priscila', 'Renata', 'Sabrina', 'Tatiane', 'Bianca', 'Carolina', 'Debora', 'Elaine', 'Flavia', 'Giovana',
+                'Heloisa', 'Ingrid', 'Jaqueline', 'Karen', 'Karina', 'Livia', 'Lorena', 'Luana', 'Luiza', 'Maysa',
+                'Milena', 'Monique', 'Natalia', 'Nicole', 'Paloma', 'Paola', 'Rafaela', 'Rebeca', 'Sara', 'Stefany',
+                'Thais', 'Valeria', 'Vivian', 'Yasmim', 'Adriana', 'Alessandra', 'Clara', 'Denise', 'Elena', 'Ester',
+                'Fabiana', 'Glaucia', 'Iris', 'Joana', 'Marta', 'Miriam', 'Olga', 'Paula', 'Regina', 'Sandra'
+            ];
+            
+            for (let i = 1; i <= 100; i++) {
+                const nomeComp = `${nomesClientes[i-1]} Silva`;
+                const emailComp = `cliente${i}@conecta.com`;
+                await db.query('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, "client")', [nomeComp, emailComp, pass]);
             }
-            console.error(err);
-            process.exit(1);
+            console.log('✓ 100 Clientes de teste criados.');
         }
+
+        // 3. Inserir 100 Fornecedores distribuídos igualmente pelas 10 categorias
+        const [provsCount] = await db.query('SELECT COUNT(*) as total FROM providers');
+        if (provsCount[0].total === 0) {
+            const nomesProvs = [
+                'Silva', 'Santos', 'Oliveira', 'Souza', 'Rodrigues', 'Ferreira', 'Alves', 'Pereira', 'Lima', 'Gomes',
+                'Costa', 'Ribeiro', 'Martins', 'Carvalho', 'Almeida', 'Lopes', 'Soares', 'Fernandes', 'Vieira', 'Barbosa',
+                'Rocha', 'Dias', 'Nascimento', 'Andrade', 'Moreira', 'Nunes', 'Marques', 'Machado', 'Mendes', 'Freitas',
+                'Cardoso', 'Ramos', 'Santana', 'Teixeira', 'Castro', 'Melo', 'Moraes', 'Carmo', 'Sales', 'Campos',
+                'Pinto', 'Rios', 'Borges', 'Rezende', 'Motta', 'Guerra', 'Bueno', 'Paes', 'Braga', 'Fonseca',
+                'Viana', 'Toledo', 'Assis', 'Cunha', 'Siqueira', 'Camargo', 'Batista', 'Miranda', 'Guimarães', 'Antunes',
+                'Carneiro', 'Leal', 'Azevedo', 'Padilha', 'Pires', 'Dantas', 'Macedo', 'Caldeira', 'Farias', 'Menezes',
+                'Galdino', 'Barros', 'Arruda', 'Giron', 'Fontes', 'Nogueira', 'Muniz', 'Lira', 'Valente', 'Meireles',
+                'Santiago', 'Xavier', 'Prado', 'Quintana', 'Cavalcanti', 'Maldonado', 'Vargas', 'Cardoso', 'Ortega', 'Arantes',
+                'Veloso', 'Bicalho', 'Mendonça', 'Tavares', 'Arraes', 'Pacheco', 'Luz', 'Galvão', 'Amaral', 'Peixoto'
+            ];
+
+            for (let i = 1; i <= 100; i++) {
+                const catAtual = cats[(i - 1) % 10]; // Garante 10 fornecedores para cada uma das 10 categorias
+                const nomeComp = `Prestador ${nomesProvs[i-1]}`;
+                const emailComp = `fornecedor${i}@conecta.com`;
+                const desc = `Especialista em ${catAtual}. Serviços profissionais rápidos, limpos e com garantia de satisfação no bairro.`;
+                const fone = `1198888${String(1000 + i)}`;
+                const rua = `Rua Número ${i}, nº ${10 + i}`;
+                const bairro = bairros[i % bairros.length];
+
+                await db.query(
+                    'INSERT INTO providers (name, email, password, category, description, phone, address, neighborhood) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [nomeComp, emailComp, pass, catAtual, desc, fone, rua, bairro]
+                );
+            }
+            console.log('✓ 100 Fornecedores (10 por categoria) criados.');
+        }
+
+        // 4. Inserir 100 Comentários/Avaliações vinculando Clientes aos Fornecedores
+        // Regra solicitada: 90% Ótimos/Bons (Notas 4 e 5), 10% Médios/Ruins (Notas 1 a 3, garantindo nota 1)
+        const [revsCount] = await db.query('SELECT COUNT(*) as total FROM reviews');
+        if (revsCount[0].total === 0) {
+            const bonsComentarios = [
+                "Excelente profissional, super recomendo!", "Serviço perfeito, muito rápido.", 
+                "Preço justo e atendimento impecável.", "Fiquei muito satisfeito com o resultado.", 
+                "Muito pontual e organizado.", "Trabalho limpo e bem executado.", 
+                "Muito educado e resolveu meu problema rápido.", "Melhor da região sem dúvidas.", 
+                "O serviço superou minhas expectativas.", "Voltarei a contratar com certeza!"
+            ];
+
+            const ruinsComentarios = [
+                "Infelizmente atrasou muito e o serviço ficou incompleto.",
+                "Não gostei do acabamento. Deixou muita sujeira.",
+                "Achei o preço muito abusivo para o que foi feito.",
+                "Péssimo atendimento, não recomendo a ninguém.",
+                "Cobrou caro e parou de responder minhas mensagens.",
+                "O serviço quebrou no dia seguinte. Nota zero."
+            ];
+
+            for (let i = 1; i <= 100; i++) {
+                let nota, comentario;
+                
+                // 10% do total (quando o resto da divisão por 10 é 0) gera nota ruim/média
+                if (i % 10 === 0) {
+                    nota = (i === 10 || i === 50) ? 1 : Math.floor(Math.random() * 2) + 2; // Garante nota 1 em alguns registros
+                    comentario = ruinsComentarios[i % ruinsComentarios.length];
+                } else {
+                    // 90% das notas são ótimas (4 ou 5)
+                    nota = Math.floor(Math.random() * 2) + 4;
+                    comentario = bonsComentarios[i % bonsComentarios.length];
+                }
+
+                await db.query(
+                    'INSERT INTO reviews (provider_id, client_id, rating, comment) VALUES (?, ?, ?, ?)',
+                    [i, i, nota, comentario]
+                );
+            }
+            console.log('✓ 100 Avaliações distribuídas cadastradas (90% boas / 10% críticas).');
+        }
+
+        console.log('✓ Banco de dados totalmente estruturado e alimentado!');
+    } catch (err) {
+        console.error('⚠️ Erro ao estruturar os dados automatizados:', err.message);
     }
-    console.error(`Não foi possível iniciar: portas ${requestedPort}-${MAX_PORT} estão ocupadas.`);
-    process.exit(1);
-})();
+}
