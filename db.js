@@ -2,15 +2,16 @@ const mysql = require('mysql2');
 const fs = require('fs');
 const path = require('path');
 
-// Caminho do certificado SSL
 const caPath = path.join(__dirname, 'ca.pem');
-let sslConfig = false;
 
-// Ativa o SSL apenas se o arquivo ca.pem existir (evita quebrar o servidor antes da hora)
+// Configuração do SSL forçada para a nuvem
+let sslConfig = {
+    rejectUnauthorized: false
+};
+
+// Se o arquivo ca.pem existir, injeta o certificado explicitamente
 if (fs.existsSync(caPath)) {
-    sslConfig = {
-        ca: fs.readFileSync(caPath)
-    };
+    sslConfig.ca = fs.readFileSync(caPath);
 }
 
 const pool = mysql.createPool({
@@ -30,12 +31,8 @@ pool.getConnection((err, connection) => {
     if (err) {
         console.error('\n✗ Erro ao conectar ao banco de dados MySQL:');
         console.error(err.message);
-        // Não derruba o processo imediatamente se for apenas falta do ca.pem temporária
-        if (!sslConfig) {
-            console.warn('⚠️ Nota: ca.pem não encontrado na raiz ainda. Crie o arquivo ca.pem para validar o SSL.');
-        }
     } else {
-        console.log('✓ Conectado ao banco de dados MySQL (Pool Ativo)');
+        console.log('✓ Conectado ao banco de dados MySQL (Pool Ativo com SSL)');
         connection.release();
     }
 });
@@ -53,31 +50,22 @@ async function getConnection() {
 // Cria um objeto 'db' que aceita TANTO await/Promises QUANTO os callbacks antigos!
 // =========================================================================
 const db = {
-    // Permite fazer: const [rows] = await db.query('...')
-    // E TAMBÉM: db.query('...', (err, results) => { ... })
     query: function(...args) {
         const lastArg = args[args.length - 1];
-        // Se o último argumento for uma função, significa que a rota é antiga e usa callback
         if (typeof lastArg === 'function') {
             return pool.query(...args);
         }
-        // Se não for função, executa como Promise (async/await)
         return promiseDb.query(...args);
     },
-
-    // Se alguma rota antiga ainda chamar db.promise()
     promise: function() {
         return promiseDb;
     },
-    // Suporte a transações manuais via conexão obtida do pool
     beginTransaction: async function() {
         const conn = await getConnection();
         await conn.beginTransaction();
         return conn;
     },
-    // Permite obter uma conexão para transações explícitas
     getConnection,
-    // Expõe o pool padrão para compatibilidade com callbacks
     pool
 };
 
