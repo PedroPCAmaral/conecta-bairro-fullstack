@@ -4,8 +4,9 @@ const cors = require('cors');
 const path = require('path');
 const app = express();
 const DEFAULT_PORT = 3000;
-const MAX_PORT = 3010;
 const requestedPort = parseInt(process.env.PORT, 10) || DEFAULT_PORT;
+// Garante que o limite de portas acompanhe dinamicamente a porta exigida pelo Render
+const MAX_PORT = requestedPort + 10;
 
 // Importar conexão do banco de dados (que está exportando o pool multi-formato)
 const db = require('./db');
@@ -91,7 +92,6 @@ app.get([
     `;
 
     // Emergency mock (apenas quando FORCE_MOCK_REVIEWS=1):
-    // Use esta variável de ambiente para forçar um mock temporário em situações de debug.
     if (process.env.FORCE_MOCK_REVIEWS === '1') {
         const now = new Date().toISOString();
         return res.json({
@@ -102,10 +102,8 @@ app.get([
     }
 
     try {
-        // Lista de avaliações
         const [reviews] = await db.query(queryStr, [providerId]);
 
-        // Estatísticas (média e total)
         const statSql = 'SELECT AVG(rating) AS average, COUNT(*) AS total FROM reviews WHERE provider_id = ?';
         const [stats] = await db.query(statSql, [providerId]);
 
@@ -131,7 +129,7 @@ app.get([
     let providerId = req.params.id || req.params['0'];
     
     if (providerId && typeof providerId === 'string') {
-        providerId = providerId.replace(/[^0-9]/g, ''); // Remove dois-pontos, letras e deixa só o número
+        providerId = providerId.replace(/[^0-9]/g, ''); 
     }
 
     if (!providerId) {
