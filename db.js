@@ -1,11 +1,16 @@
 const mysql = require('mysql2');
+const fs = require('fs');
+const path = require('path');
 
 const pool = mysql.createPool({
-    host: 'localhost',
-    user: 'root',
-    password: '', 
-    database: 'conecta_bairro',
-    port: 3306,
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT,
+    ssl: {
+        ca: fs.readFileSync(path.join(__dirname, 'ca.pem'))
+    },
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
@@ -32,37 +37,112 @@ async function getConnection() {
 
 // =========================================================================
 // 🛡️ SUPER BLINDAGEM MULTI-FORMATO
-// Cria um objeto 'db' que aceita TANTO await/Promises QUANTO os callbacks antigos!
 // =========================================================================
 const db = {
-    // Permite fazer: const [rows] = await db.query('...')
-    // E TAMBÉM: db.query('...', (err, results) => { ... })
     query: function(...args) {
         const lastArg = args[args.length - 1];
-        // Se o último argumento for uma função, significa que a rota é antiga e usa callback
         if (typeof lastArg === 'function') {
             return pool.query(...args);
         }
-        // Se não for função, executa como Promise (async/await)
         return promiseDb.query(...args);
     },
-    
-    // Se alguma rota antiga ainda chamar db.promise()
     promise: function() {
         return promiseDb;
     },
-
-    // Suporte a transações manuais via conexão obtida do pool
     beginTransaction: async function() {
         const conn = await getConnection();
         await conn.beginTransaction();
         return conn;
     },
-
-    // Permite obter uma conexão para transações explícitas
     getConnection,
-    // Expõe o pool padrão para compatibilidade com callbacks
     pool
 };
+
+// =========================================================================
+// 🏗️ CRIAÇÃO AUTOMÁTICA DAS TABELAS (roda uma vez quando o servidor sobe)
+// =========================================================================
+async function initTables() {
+    try {
+        await promiseDb.query(`
+            CREATE TABLE IF NOT EXISTS categories (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                name VARCHAR(100) NOT NULL,
+                description TEXT,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await promiseDb.query(`
+            CREATE TABLE IF NOT EXISTS providers (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                name VARCHAR(255) NOT NULL,
+                category VARCHAR(100),
+                description TEXT,
+                phone VARCHAR(20),
+                email VARCHAR(320),
+                address VARCHAR(255),
+                neighborhood VARCHAR(100),
+                isActive BOOLEAN DEFAULT 1,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        `);
+
+        await promiseDb.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                name VARCHAR(255),
+                email VARCHAR(320) UNIQUE,
+                password VARCHAR(255),
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await promiseDb.query(`
+            CREATE TABLE IF NOT EXISTS reviews (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                provider_id INT NOT NULL,
+                user_id INT,
+                client_id INT,
+                rating INT NOT NULL,
+                comment TEXT,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
+            )
+        `);
+
+        await promiseDb.query(`
+            CREATE TABLE IF NOT EXISTS social_links (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                provider_id INT NOT NULL,
+                platform VARCHAR(50),
+                url VARCHAR(500),
+                FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
+            )
+        `);
+
+        const [rows] = await promiseDb.query('SELECT COUNT(*) as total FROM categories');
+        if (rows[0].total === 0) {
+            await promiseDb.query(`
+                INSERT INTO categories (name, description) VALUES
+                ('Elétrica', 'Serviços elétricos'),
+                ('Costura', 'Serviços de costura'),
+                ('Alimentação', 'Serviços alimentícios'),
+                ('Limpeza', 'Serviços de limpeza'),
+                ('Tecnologia', 'Serviços tecnológicos'),
+                ('Hidráulica', 'Serviços hidráulicos'),
+                ('Pintura', 'Serviços de pintura'),
+                ('Carpintaria', 'Serviços de carpintaria')
+            `);
+            console.log('✓ Categorias iniciais inseridas');
+        }
+
+        console.log('✓ Tabelas verificadas/criadas com sucesso');
+    } catch (err) {
+        console.error('✗ Erro ao criar tabelas:', err.message);
+    }
+}
+
+initTables();
 
 module.exports = db;
