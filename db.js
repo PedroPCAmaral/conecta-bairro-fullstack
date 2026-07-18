@@ -1,11 +1,16 @@
 const mysql = require('mysql2');
+const fs = require('fs');
+const path = require('path');
 
 const pool = mysql.createPool({
-    host: 'localhost',
-    user: 'root',
-    password: '', 
-    database: 'conecta_bairro',
-    port: 3306,
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT,
+    ssl: {
+        ca: fs.readFileSync(path.join(__dirname, 'ca.pem'))
+    },
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
@@ -46,19 +51,17 @@ const db = {
         // Se não for função, executa como Promise (async/await)
         return promiseDb.query(...args);
     },
-    
+
     // Se alguma rota antiga ainda chamar db.promise()
     promise: function() {
         return promiseDb;
     },
-
     // Suporte a transações manuais via conexão obtida do pool
     beginTransaction: async function() {
         const conn = await getConnection();
         await conn.beginTransaction();
         return conn;
     },
-
     // Permite obter uma conexão para transações explícitas
     getConnection,
     // Expõe o pool padrão para compatibilidade com callbacks
