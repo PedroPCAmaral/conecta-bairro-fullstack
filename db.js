@@ -2,15 +2,24 @@ const mysql = require('mysql2');
 const fs = require('fs');
 const path = require('path');
 
+// Caminho do certificado SSL
+const caPath = path.join(__dirname, 'ca.pem');
+let sslConfig = false;
+
+// Ativa o SSL apenas se o arquivo ca.pem existir (evita quebrar o servidor antes da hora)
+if (fs.existsSync(caPath)) {
+    sslConfig = {
+        ca: fs.readFileSync(caPath)
+    };
+}
+
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    port: process.env.DB_PORT,
-    ssl: {
-        ca: fs.readFileSync(path.join(__dirname, 'ca.pem'))
-    },
+    port: process.env.DB_PORT || 20002,
+    ssl: sslConfig,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
@@ -21,10 +30,14 @@ pool.getConnection((err, connection) => {
     if (err) {
         console.error('\n✗ Erro ao conectar ao banco de dados MySQL:');
         console.error(err.message);
-        process.exit(1);
+        // Não derruba o processo imediatamente se for apenas falta do ca.pem temporária
+        if (!sslConfig) {
+            console.warn('⚠️ Nota: ca.pem não encontrado na raiz ainda. Crie o arquivo ca.pem para validar o SSL.');
+        }
+    } else {
+        console.log('✓ Conectado ao banco de dados MySQL (Pool Ativo)');
+        connection.release();
     }
-    console.log('✓ Conectado ao banco de dados MySQL (Pool Ativo)');
-    connection.release();
 });
 
 // Criamos a instância de Promise padrão
