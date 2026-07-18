@@ -5,6 +5,7 @@ const path = require('path');
 const app = express();
 const DEFAULT_PORT = 3000;
 const requestedPort = parseInt(process.env.PORT, 10) || DEFAULT_PORT;
+// Garante que o limite de portas acompanhe dinamicamente a porta exigida pelo Render
 const MAX_PORT = requestedPort + 10;
 
 // Importar conexão do banco de dados (que está exportando o pool multi-formato)
@@ -102,6 +103,7 @@ app.get([
 
     try {
         const [reviews] = await db.query(queryStr, [providerId]);
+
         const statSql = 'SELECT AVG(rating) AS average, COUNT(*) AS total FROM reviews WHERE provider_id = ?';
         const [stats] = await db.query(statSql, [providerId]);
 
@@ -127,7 +129,7 @@ app.get([
     let providerId = req.params.id || req.params['0'];
     
     if (providerId && typeof providerId === 'string') {
-        providerId = providerId.replace(/[^0-9]/g, '');
+        providerId = providerId.replace(/[^0-9]/g, ''); 
     }
 
     if (!providerId) {
